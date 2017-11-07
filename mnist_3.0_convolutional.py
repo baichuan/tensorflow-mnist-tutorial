@@ -12,6 +12,9 @@ X = tf.placeholder(tf.float32, [None, 28, 28, 1])
 Y_ = tf.placeholder(tf.float32, [None, 10])
 # variable learning rate
 lr = tf.placeholder(tf.float32)
+# probability of keep a node during dropout
+# dropout = 1.0 in test time and 0.75 in training phase
+pkeep = tf.placeholder(tf.float32)
 
 # three convolutional layers with their channel counts, and a
 # fully connected layer (tha last layer has 10 softmax neurons)
@@ -46,7 +49,8 @@ Y3 = tf.nn.relu(tf.nn.conv2d(Y2, W3, strides=[1, stride, stride, 1], padding='SA
 YY = tf.reshape(Y3, shape=[-1, 7 * 7 * M])
 
 Y4 = tf.nn.relu(tf.matmul(YY, W4) + B4)
-Ylogits = tf.matmul(Y4, W5) + B5
+YY4 = tf.nn.dropout(Y4, pkeep)
+Ylogits = tf.matmul(YY4, W5) + B5
 Y = tf.nn.softmax(Ylogits)
 
 # cross-entropy loss function (= -sum(Y_i * log(Yi)) ), normalised for batches of 100  images
@@ -80,11 +84,14 @@ with tf.Session() as sess:
             batch_X, batch_Y = mnist.train.next_batch(batch_size)
             learning_rate = min_learning_rate + (max_learning_rate - min_learning_rate) * math.exp(-iter_/decay_speed)
             opt, c = sess.run([train_step, cross_entropy],
-                              feed_dict = {X:batch_X, Y_:batch_Y, lr:learning_rate})
+                              feed_dict = {X:batch_X, Y_:batch_Y, \
+                                           lr:learning_rate, \
+                                           pkeep: 0.75})
             avg_cost += c
 
         test_acc = sess.run(accuracy, feed_dict = {X: mnist.test.images, \
-                                                   Y_: mnist.test.labels})
+                                                   Y_: mnist.test.labels, \
+                                                   pkeep: 1.0})
         print "training loss is " + str(float(avg_cost) / total_batch)
         print "test accuracy is " + str(test_acc)
 
